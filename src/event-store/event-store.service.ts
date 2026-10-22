@@ -29,6 +29,49 @@ export class EventStoreService implements OnModuleDestroy {
     return { taskId, payload };
   }
 
+  async getTaskById(taskId: string) {
+    const events = [];
+
+    for await (const resolvedEvent of this.client.readStream(
+      `task-${taskId}`,
+    )) {
+      events.push(resolvedEvent);
+    }
+
+    return events.map((event) => ({
+      type: event.event?.type,
+      data: event.event?.data,
+    }));
+  }
+  async deleteTask(taskId: string) {
+  const event = jsonEvent({
+    id: uuidv4(),
+    type: 'TaskDeleted',
+    data: { taskId },
+  });
+
+  await this.client.appendToStream(`task-${taskId}`, event);
+
+  return {
+    message: 'Task deleted successfully',
+    taskId,
+  };
+}
+async updateTask(taskId: string, title: string) {
+  const event = jsonEvent({
+    id: uuidv4(),
+    type: 'TaskUpdated',
+    data: {
+      taskId,
+      title,
+    },
+  });
+
+  await this.client.appendToStream(`task-${taskId}`, event);
+
+  return { taskId, title };
+}
+
   async onModuleDestroy() {
     await this.client.dispose();
   }
